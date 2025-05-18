@@ -42,6 +42,15 @@ class Interrogator:
         generated_ids = self.blip_model.model.generate(**inputs, max_new_tokens=75)
         caption = self.blip_processor.batch_decode(generated_ids, skip_special_tokens=True)[0].strip()
 
+        # Move BLIP-2 model back to CPU to free GPU memory. The model remains
+        # initialized but is offloaded until the next interrogation call loads
+        # it again. This avoids hogging VRAM when captioning is done.
+        loaded_blip = model_management.LoadedModel(self.blip_model)
+        if loaded_blip in model_management.current_loaded_models:
+            idx = model_management.current_loaded_models.index(loaded_blip)
+            model_management.current_loaded_models.pop(idx).model_unload()
+            model_management.soft_empty_cache()
+
         return caption
 
 
